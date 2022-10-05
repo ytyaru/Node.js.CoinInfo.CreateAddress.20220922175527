@@ -1,4 +1,4 @@
-coininfoでアドレスを作成するCUIを書いた。
+coininfoでアドレスを作成するCUIを書いた 改
 
 　超簡単なやつ。
 
@@ -35,13 +35,91 @@ node index.js
 
 # ソースコード作成
 
-　[前回][]のやつに`network`の設定を追加した。`coininfo`で`MONA`を指定すると返される。
-
-[]:
-
 ```sh
 vim index.js
 ```
+
+## 追記
+
+　前回コメントで教えていただいた[Object.keys][]でリファクタリングした。
+
+* [coininfoの全コイン種別を調べる【24種】改][]
+
+[coininfoの全コイン種別を調べる【24種】改]:https://monaledge.com/article/555
+[Object.keys]:https://developer.mozilla.org/ja/docs/Web/JavaScript/Reference/Global_Objects/Object/keys
+
+```javascript
+const tinysecp = require('tiny-secp256k1');
+const coininfo = require('coininfo');
+const ecpair = require('ecpair');
+const bitcoin = require('bitcoinjs-lib');
+
+const names = Object.keys(coininfo)
+const units = Object.values(coininfo).map(coin=>coin.main.unit)
+
+function error() {
+    console.log('第一引数に以下のうちいずれかを指定してください。')
+    console.log('出力結果はアドレス(p2pkh,p2wpkh)、公開鍵、秘密鍵の順に一行ずつ出力します。')
+    console.assert(names.length === units.length)
+    console.log(units.join('\n'))
+    process.on("exit", ()=>process.exit(1))
+}
+function createAddress(unit) {
+    const network = coininfo(unit).toBitcoinJS();
+    const ECPair = ecpair.ECPairFactory(tinysecp)
+    const key = ECPair.makeRandom()
+    function getAddr(func, arg) { try { return func(arg).address } catch(e) { return '' } }
+    return {
+        'PrivateKey': key.privateKey.toString('hex'),
+        'PublicKey': key.publicKey.toString('hex'),
+        'Addresses': {
+            'p2pkh': getAddr(bitcoin.payments.p2pkh, { pubkey: key.publicKey, network: network }),
+            'p2wpkh': getAddr(bitcoin.payments.p2wpkh, { pubkey: key.publicKey, network: network }),
+        }
+    }
+}
+if (process.argv.length < 3) { error(); return; }
+if (!units.includes(process.argv[2])) { error(); return;  }
+address = createAddress(process.argv[2])
+console.log(address.Addresses.p2pkh)
+console.log(address.Addresses.p2wpkh)
+console.log(address.PublicKey)
+console.log(address.PrivateKey)
+```
+
+　コインによっては出力されないものもあった。原因不明。秘密鍵や公開鍵はすべて出力されたのだが。
+
+通貨|p2pkh|p2wpkh
+----|-----|------
+`BCH`|⭕|❌
+`BLK`|⭕|❌
+`BTC`|⭕|⭕
+`BTG`|⭕|⭕
+`RYO`|⭕|❌
+`CITY`|⭕|❌
+`DASH`|⭕|❌
+`DNR`|⭕|❌
+`DCR`|❌|❌
+`DGB`|⭕|⭕
+`DOGE`|⭕|❌
+`GRS`|⭕|⭕
+`LTC`|⭕|⭕
+`VIA`|⭕|❌
+`MONA`|⭕|⭕
+`NBT`|⭕|❌
+`NMC`|⭕|❌
+`PPC`|⭕|❌
+`QTUM`|⭕|⭕
+`RVN`|⭕|⭕
+`RDD`|⭕|❌
+`VTC`|⭕|⭕
+`x42`|⭕|❌
+`ZEC`|❌|❌
+
+<details><summary>旧コード</summary>
+
+## 旧コード
+
 ```javascript
 const tinysecp = require('tiny-secp256k1');
 const coininfo = require('coininfo');
@@ -111,6 +189,8 @@ console.log(address.Addresses.p2wpkh)
 console.log(address.PublicKey)
 console.log(address.PrivateKey)
 ```
+
+</details>
 
 # 実行
 
